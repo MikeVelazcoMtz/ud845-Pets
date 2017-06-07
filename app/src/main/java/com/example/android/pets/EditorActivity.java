@@ -15,6 +15,8 @@
  */
 package com.example.android.pets;
 
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
@@ -26,6 +28,10 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.Toast;
+
+import com.example.android.pets.data.PetContract.PetEntry;
+import com.example.android.pets.data.PetDbHelper;
 
 /**
  * Allows user to create a new pet or edit an existing one.
@@ -44,6 +50,9 @@ public class EditorActivity extends AppCompatActivity {
     /** EditText field to enter the pet's gender */
     private Spinner mGenderSpinner;
 
+    /** instance of SQLiteOpenHelper used to save the pet */
+    private PetDbHelper mDbHelper;
+
     /**
      * Gender of the pet. The possible values are:
      * 0 for unknown gender, 1 for male, 2 for female.
@@ -60,6 +69,9 @@ public class EditorActivity extends AppCompatActivity {
         mBreedEditText = (EditText) findViewById(R.id.edit_pet_breed);
         mWeightEditText = (EditText) findViewById(R.id.edit_pet_weight);
         mGenderSpinner = (Spinner) findViewById(R.id.spinner_gender);
+
+        // Setup for PetDbHelper
+        mDbHelper = new PetDbHelper(this);
 
         setupSpinner();
     }
@@ -86,11 +98,11 @@ public class EditorActivity extends AppCompatActivity {
                 String selection = (String) parent.getItemAtPosition(position);
                 if (!TextUtils.isEmpty(selection)) {
                     if (selection.equals(getString(R.string.gender_male))) {
-                        mGender = 1; // Male
+                        mGender = PetEntry.GENDER_MALE; // Male
                     } else if (selection.equals(getString(R.string.gender_female))) {
-                        mGender = 2; // Female
+                        mGender = PetEntry.GENDER_FEMALE; // Female
                     } else {
-                        mGender = 0; // Unknown
+                        mGender = PetEntry.GENDER_UNKNOWN; // Unknown
                     }
                 }
             }
@@ -98,7 +110,7 @@ public class EditorActivity extends AppCompatActivity {
             // Because AdapterView is an abstract class, onNothingSelected must be defined
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                mGender = 0; // Unknown
+                mGender = PetEntry.GENDER_UNKNOWN; // Unknown
             }
         });
     }
@@ -117,7 +129,7 @@ public class EditorActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
-                // Do nothing for now
+                savePet();
                 return true;
             // Respond to a click on the "Delete" menu option
             case R.id.action_delete:
@@ -130,5 +142,27 @@ public class EditorActivity extends AppCompatActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void savePet()
+    {
+        // Create and/or open a database to read from it
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+
+        ContentValues cv = new ContentValues();
+        cv.put(PetEntry.COLUMN_NAME_NAME, mNameEditText.getText().toString().trim());
+        cv.put(PetEntry.COLUMN_NAME_BREED, mBreedEditText.getText().toString().trim());
+        Integer weight = Integer.parseInt(mWeightEditText.getText().toString().trim());
+        cv.put(PetEntry.COLUMN_NAME_WEIGHT, weight);
+        cv.put(PetEntry.COLUMN_NAME_GENDER, mGender);
+        long id = db.insert(PetEntry.TABLE_NAME, null, cv);
+        if (id != -1) {
+            Toast.makeText(this, "New pet added with ID: " + String.valueOf(id),Toast.LENGTH_SHORT).show();
+
+            // Return to the previous activity
+            NavUtils.navigateUpFromSameTask(this);
+        } else {
+            Toast.makeText(this, "Error saving new pet", Toast.LENGTH_SHORT).show();
+        }
     }
 }
